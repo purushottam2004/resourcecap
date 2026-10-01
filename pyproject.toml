@@ -9,6 +9,12 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
 
 [project.scripts]
 resourcecap = "resourcecap:main"
