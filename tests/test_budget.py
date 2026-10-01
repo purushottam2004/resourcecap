@@ -347,3 +347,55 @@ def test_budget_charge_is_thread_safe():
         t.join()
 
     assert budget.spent["cost"] == thread_count * charges_per_thread
+
+
+def test_nested_budgets_both_get_charged_independently():
+    @costs(amount=10)
+    def foo():
+        pass
+
+    outer = Budget(amount=100)
+    inner = Budget(amount=100)
+
+    with outer, inner:
+        foo()
+        foo()
+
+    assert outer.get_status() == {"cost": {"allocated": 100, "used": 20.0, "remaining": 80.0}}
+    assert inner.get_status() == {"cost": {"allocated": 100, "used": 20.0, "remaining": 80.0}}
+
+
+def test_nested_budget_raises_independently_when_its_own_limit_is_hit():
+    @costs(amount=10)
+    def foo():
+        pass
+
+    outer = Budget(amount=1000)
+    inner = Budget(amount=15)
+
+    with pytest.raises(BudgetExhaustedError), outer, inner:
+        foo()
+        foo()
+
+    assert outer.get_status()["cost"]["used"] == 20.0
+    assert inner.get_status()["cost"]["used"] == 20.0
+
+
+def test_outer_budget_raising_stops_inner_from_being_charged_that_call():
+    """Active budgets are charged in stack order (outer first). If an
+    earlier budget in that order raises, later budgets never receive
+    that call's charge at all."""
+
+    @costs(amount=10)
+    def foo():
+        pass
+
+    outer = Budget(amount=15)
+    inner = Budget(amount=1000)
+
+    with pytest.raises(BudgetExhaustedError), outer, inner:
+        foo()
+        foo()
+
+    assert outer.get_status()["cost"]["used"] == 20.0
+    assert inner.get_status()["cost"]["used"] == 10.0
