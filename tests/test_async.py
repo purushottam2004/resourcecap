@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from resourcecap import Budget, BudgetExhaustedError, costs
+from resourcecap import Budget, BudgetExhaustedError, BudgetReentryError, costs
 
 
 def test_costs_logs_for_async_function(caplog):
@@ -67,3 +67,30 @@ def test_budget_isolated_across_concurrent_tasks():
         )
 
     assert asyncio.run(run()) == ["ok", "exhausted", "ok"]
+
+
+def test_budget_same_instance_entered_concurrently_raises_reentry_error():
+    """A single Budget instance can't be open twice at once. Entering it
+    while it's already open elsewhere raises BudgetReentryError cleanly,
+    instead of corrupting its enter/exit bookkeeping."""
+
+    budget = Budget(amount=1000)
+
+    @costs(amount=1)
+    async def foo():
+        pass
+
+    async def worker(delay: float) -> None:
+        async with budget:
+            await asyncio.sleep(delay)
+            await foo()
+
+    async def run() -> tuple[BaseException | None, BaseException | None]:
+        return await asyncio.gather(worker(0.02), worker(0.0), return_exceptions=True)
+
+    results = asyncio.run(run())
+
+    assert results.count(None) == 1
+    errors = [r for r in results if r is not None]
+    assert len(errors) == 1
+    assert isinstance(errors[0], BudgetReentryError)

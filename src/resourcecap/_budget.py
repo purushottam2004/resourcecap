@@ -14,6 +14,18 @@ class BudgetExhaustedError(Exception):
     """Raised when a `Budget`'s limit for some resource is exceeded."""
 
 
+class BudgetReentryError(RuntimeError):
+    """Raised when a `Budget` is entered while it's already open.
+
+    A single `Budget` instance isn't safe to have open twice at once —
+    whether that's one task/thread re-entering it while still inside an
+    outer block on the same instance, or two concurrent tasks/threads
+    each entering it independently. Either enter it once around the
+    concurrent work (so everything inside shares that one open block),
+    or create a separate `Budget` instance per concurrent call.
+    """
+
+
 class Budget:
     """Context manager enforcing a spending limit on `costs`-decorated calls made within it.
 
@@ -30,7 +42,9 @@ class Budget:
     that limit before the decorated call runs rather than after.
 
     Each resource's spend resets to zero every time the block is
-    entered, so a `Budget` instance can be reused across separate blocks.
+    entered, so a `Budget` instance can be reused across separate,
+    non-overlapping blocks. It is **not** safe to have the same
+    instance open twice at once — see `BudgetReentryError`.
     """
 
     def __init__(
@@ -92,8 +106,14 @@ class Budget:
 
     def __enter__(self) -> "Budget":
         with self._lock:
+            if self._token is not None:
+                raise BudgetReentryError(
+                    "this Budget is already open: a Budget instance can't be entered "
+                    "while it's still open elsewhere. Enter it once around the "
+                    "concurrent work, or use a separate Budget per concurrent call."
+                )
             self.spent = {}
-        self._token = _tracking.push(self)
+            self._token = _tracking.push(self)
         return self
 
     def __exit__(
@@ -102,9 +122,10 @@ class Budget:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        assert self._token is not None
-        _tracking.pop(self._token)
-        self._token = None
+        with self._lock:
+            assert self._token is not None
+            _tracking.pop(self._token)
+            self._token = None
 
     async def __aenter__(self) -> "Budget":
         return self.__enter__()

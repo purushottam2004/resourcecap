@@ -83,6 +83,13 @@ Each call to `foo()` logs something like:
 the above code will stop execution at that point and raise BudgetExhaustedError,
 after the 4th call to `foo()` pushes the spend from 30 to 40.
 
+A `Budget` instance can be reused across separate, non-overlapping `with`
+blocks (its spend resets each time), but it can't be open twice at once —
+entering it while it's already open, from a concurrent task/thread or
+otherwise, raises `BudgetReentryError`. If you need several concurrent
+pieces of work to share one budget, open it once around all of them; if
+each needs independent tracking, give each its own `Budget` instance.
+
 ## Multiple resources
 
 `amount` on `costs`/`Budget` tracks a single, default resource. To track

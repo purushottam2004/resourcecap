@@ -3,7 +3,7 @@ import threading
 
 import pytest
 
-from resourcecap import Budget, BudgetExhaustedError, Spendable, costs
+from resourcecap import Budget, BudgetExhaustedError, BudgetReentryError, Spendable, costs
 
 
 def test_budget_allows_calls_within_amount():
@@ -399,3 +399,41 @@ def test_outer_budget_raising_stops_inner_from_being_charged_that_call():
 
     assert outer.get_status()["cost"]["used"] == 20.0
     assert inner.get_status()["cost"]["used"] == 10.0
+
+
+def test_budget_same_instance_entered_concurrently_raises_reentry_error():
+    """A single Budget instance can't be open twice at once. Entering it
+    from a second thread while it's already open on the first raises
+    BudgetReentryError cleanly, instead of corrupting its enter/exit
+    bookkeeping. Uses events (not sleeps) so the overlap is guaranteed,
+    not just timing-likely."""
+
+    budget = Budget(amount=1000)
+    first_entered = threading.Event()
+    second_done = threading.Event()
+    errors: list[BaseException] = []
+
+    def first_worker() -> None:
+        with budget:
+            first_entered.set()
+            second_done.wait()
+
+    def second_worker() -> None:
+        first_entered.wait()
+        try:
+            with budget:
+                pass
+        except Exception as exc:
+            errors.append(exc)
+        finally:
+            second_done.set()
+
+    t1 = threading.Thread(target=first_worker)
+    t2 = threading.Thread(target=second_worker)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert len(errors) == 1
+    assert isinstance(errors[0], BudgetReentryError)

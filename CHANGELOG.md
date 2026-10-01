@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-01
+
+### Added
+
+- `BudgetReentryError`: raised when a `Budget` instance is entered while
+  it's already open — whether from a second concurrent task/thread, or
+  from re-entering it directly. Previously this corrupted the budget's
+  internal bookkeeping and crashed with an unrelated `AssertionError`
+  instead of a clear, catchable error.
+
+### Fixed
+
+- `Budget.__enter__`/`__exit__` now guard against this case under the
+  same lock used for `charge()`, so the check-then-raise can't itself
+  race when two entries happen at (almost) the same instant.
+
 ## [0.2.1] - 2026-10-01
 
 ### Added
@@ -66,7 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   completes, via a logger named `resourcecap`, including a process-wide
   `running_total_cost` for that resource.
 
-[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/purushottam2004/resourcecap/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/purushottam2004/resourcecap/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/purushottam2004/resourcecap/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/purushottam2004/resourcecap/releases/tag/v0.1.0
