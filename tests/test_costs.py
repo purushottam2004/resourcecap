@@ -1,0 +1,77 @@
+import logging
+
+from resourcecap import costs
+
+
+def test_costs_logs_info_with_function_name_and_cost(caplog):
+    @costs(amount=10)
+    def foo():
+        pass
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        foo()
+
+    assert len(caplog.records) == 1
+    record = caplog.records[0]
+    assert record.levelno == logging.INFO
+    assert "foo" in record.message
+    assert "10" in record.message
+
+
+def test_costs_logs_file_and_line_number(caplog):
+    @costs(amount=5)
+    def bar():
+        pass
+
+    expected_line = bar.__wrapped__.__code__.co_firstlineno
+    expected_file = bar.__wrapped__.__code__.co_filename
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        bar()
+
+    record = caplog.records[0]
+    assert expected_file in record.message
+    assert str(expected_line) in record.message
+
+
+def test_costs_logs_once_per_call(caplog):
+    @costs(amount=1)
+    def baz():
+        pass
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        baz()
+        baz()
+        baz()
+
+    assert len(caplog.records) == 3
+
+
+def test_costs_returns_wrapped_function_result():
+    @costs(amount=2)
+    def add(a, b):
+        return a + b
+
+    assert add(2, 3) == 5
+
+
+def test_costs_preserves_function_metadata():
+    @costs(amount=2)
+    def documented():
+        """A documented function."""
+
+    assert documented.__name__ == "documented"
+    assert documented.__doc__ == "A documented function."
+
+
+def test_costs_logs_qualname_for_methods(caplog):
+    class Foo:
+        @costs(amount=7)
+        def method(self):
+            pass
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        Foo().method()
+
+    record = caplog.records[0]
+    assert "Foo.method" in record.message
