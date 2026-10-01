@@ -15,3 +15,31 @@ resourcecap = "resourcecap:main"
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "ANN", # flake8-annotations
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["resourcecap"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
