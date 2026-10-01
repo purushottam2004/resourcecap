@@ -4,6 +4,8 @@ import logging
 import threading
 from collections.abc import Callable
 
+from . import _tracking
+
 logger = logging.getLogger("resourcecap")
 
 _running_total_cost = 0.0
@@ -30,6 +32,7 @@ def costs[**P, R](amount: float) -> Callable[[Callable[P, R]], Callable[P, R]]:
                 amount,
                 running_total_cost,
             )
+            _tracking.charge_active_budgets(amount)
             return result
 
         return wrapper
