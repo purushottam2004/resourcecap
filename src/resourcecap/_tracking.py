@@ -21,11 +21,6 @@ def pop(token: contextvars.Token[tuple[Budget, ...]]) -> None:
     _active_budgets.reset(token)
 
 
-def charge_active_budgets(key: Hashable, amount: float) -> None:
-    for budget in _active_budgets.get():
-        budget.charge(key, amount)
-
-
 def charge_active_budgets_at_start(key: Hashable, partial_amount: float) -> None:
     if not partial_amount:
         return

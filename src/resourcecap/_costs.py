@@ -85,9 +85,7 @@ def costs[**P, R](
                     resolved.amount,
                     total,
                 )
-                _tracking.charge_active_budgets_after(
-                    key, resolved.amount, partial_amounts.get(key, 0.0)
-                )
+                _tracking.charge_active_budgets_after(key, resolved.amount, partial_amounts[key])
 
         if inspect.iscoroutinefunction(func):
             async_func = cast(Callable[P, Awaitable[R]], func)

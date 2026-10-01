@@ -64,6 +64,9 @@ class Spendable:
     def coerce(cls, value: "float | Spendable") -> "Spendable":
         return value if isinstance(value, Spendable) else cls(value)
 
+    def _with_amount(self, amount: float) -> "Spendable":
+        return Spendable(amount, warn_only=self.warn_only, exhaust_at_start=self.exhaust_at_start)
+
     def resolve(
         self, args: tuple[Any, ...], kwargs: dict[str, Any], result: Any  # noqa: ANN401
     ) -> "Spendable":
@@ -80,7 +83,7 @@ class Spendable:
             total += self.from_args(*args, **kwargs)
         if self.from_result is not None:
             total += self.from_result(result)
-        return Spendable(total, warn_only=self.warn_only, exhaust_at_start=self.exhaust_at_start)
+        return self._with_amount(total)
 
     def resolve_partial(self, args: tuple[Any, ...], kwargs: dict[str, Any]) -> "Spendable":
         """Like `resolve`, but only the static `amount` and `from_args`.
@@ -91,11 +94,7 @@ class Spendable:
         if self.from_args is None:
             return self
 
-        return Spendable(
-            self.amount + self.from_args(*args, **kwargs),
-            warn_only=self.warn_only,
-            exhaust_at_start=self.exhaust_at_start,
-        )
+        return self._with_amount(self.amount + self.from_args(*args, **kwargs))
 
 
 def merge_resources(
