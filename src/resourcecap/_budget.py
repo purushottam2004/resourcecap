@@ -1,5 +1,6 @@
 import contextvars
 import logging
+import threading
 from collections.abc import Hashable, Mapping
 from types import TracebackType
 
@@ -39,6 +40,7 @@ class Budget:
     ) -> None:
         self.limits = merge_resources(amount, limits)
         self.spent: dict[Hashable, float] = {}
+        self._lock = threading.Lock()
         self._token: contextvars.Token[tuple[_tracking._Chargeable, ...]] | None = None
 
     def exhausts_at_start(self, key: Hashable) -> bool:
@@ -53,14 +55,15 @@ class Budget:
         (spend charged against it so far), and `remaining` (`allocated
         - used`, which can go negative for a `warn_only` resource).
         """
-        return {
-            key: {
-                "allocated": limit.amount,
-                "used": self.spent.get(key, 0.0),
-                "remaining": limit.amount - self.spent.get(key, 0.0),
+        with self._lock:
+            return {
+                key: {
+                    "allocated": limit.amount,
+                    "used": self.spent.get(key, 0.0),
+                    "remaining": limit.amount - self.spent.get(key, 0.0),
+                }
+                for key, limit in self.limits.items()
             }
-            for key, limit in self.limits.items()
-        }
 
     def charge(self, key: Hashable, amount: float) -> None:
         """Record spend against this budget's limit for `key`.
@@ -73,8 +76,10 @@ class Budget:
         if limit is None:
             return
 
-        spent = self.spent.get(key, 0.0) + amount
-        self.spent[key] = spent
+        with self._lock:
+            spent = self.spent.get(key, 0.0) + amount
+            self.spent[key] = spent
+
         if spent > limit.amount:
             if limit.warn_only:
                 logger.warning(
@@ -86,7 +91,8 @@ class Budget:
                 )
 
     def __enter__(self) -> "Budget":
-        self.spent = {}
+        with self._lock:
+            self.spent = {}
         self._token = _tracking.push(self)
         return self
 

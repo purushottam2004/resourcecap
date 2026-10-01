@@ -7,10 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-01
+
 ### Added
 
 - `publish.yaml` CI workflow: lints, type-checks and tests the project, then
   publishes to PyPI via Trusted Publishing whenever a `v*` tag is pushed.
+
+### Fixed
+
+- `Budget.charge()` and `Budget.get_status()` are now thread-safe. Previously,
+  a `Budget` shared across threads (not `asyncio` tasks, which were already
+  safe via `contextvars`) could lose charges to a race on `self.spent`'s
+  read-modify-write.
+
+### Removed
+
+- The leftover `resourcecap` console script and its `main()` function, a
+  scaffold from `uv init` unrelated to this package's purpose as a library.
 
 ## [0.2.0] - 2026-10-01
 
@@ -52,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   completes, via a logger named `resourcecap`, including a process-wide
   `running_total_cost` for that resource.
 
-[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/purushottam2004/resourcecap/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/purushottam2004/resourcecap/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/purushottam2004/resourcecap/releases/tag/v0.1.0

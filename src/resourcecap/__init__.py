@@ -2,8 +2,4 @@ from ._budget import Budget, BudgetExhaustedError
 from ._costs import costs
 from ._resources import Spendable
 
-__all__ = ["Budget", "BudgetExhaustedError", "Spendable", "costs", "main"]
-
-
-def main() -> None:
-    print("Hello from resourcecap!")
+__all__ = ["Budget", "BudgetExhaustedError", "Spendable", "costs"]

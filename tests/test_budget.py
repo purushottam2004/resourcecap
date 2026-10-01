@@ -1,4 +1,5 @@
 import logging
+import threading
 
 import pytest
 
@@ -327,3 +328,22 @@ def test_get_status_resets_between_separate_with_blocks():
         status = budget.get_status()
 
     assert status == {"cost": {"allocated": 30, "used": 0.0, "remaining": 30.0}}
+
+
+def test_budget_charge_is_thread_safe():
+    budget = Budget(amount=Spendable(1_000_000, warn_only=True))
+
+    thread_count = 20
+    charges_per_thread = 500
+
+    def worker() -> None:
+        for _ in range(charges_per_thread):
+            budget.charge("cost", 1)
+
+    threads = [threading.Thread(target=worker) for _ in range(thread_count)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert budget.spent["cost"] == thread_count * charges_per_thread

@@ -1,6 +1,6 @@
 [project]
 name = "resourcecap"
-version = "0.2.0"
+version = "0.2.1"
 description = "A python package to limit the resource usage of any program"
 readme = "README.md"
 license = "MIT"
@@ -15,9 +15,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
-
-[project.scripts]
-resourcecap = "resourcecap:main"
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]
