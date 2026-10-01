@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-01
+
+### Added
+
+- CI now runs the test suite across a matrix of Python 3.12, 3.13, and
+  3.14 (lint/type-check still run once, since they're not
+  interpreter-version-sensitive). Declared support for 3.13 and 3.14 in
+  `classifiers` now that CI actually verifies them, rather than only
+  claiming the one version previously tested.
+
 ## [0.2.3] - 2026-10-01
 
 ### Changed
@@ -90,7 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   completes, via a logger named `resourcecap`, including a process-wide
   `running_total_cost` for that resource.
 
-[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/purushottam2004/resourcecap/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/purushottam2004/resourcecap/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/purushottam2004/resourcecap/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/purushottam2004/resourcecap/compare/v0.2.0...v0.2.1
