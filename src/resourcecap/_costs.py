@@ -28,9 +28,10 @@ def costs[**P, R](
     Each call logs one INFO-level line per resource via a logger named
     "resourcecap", including a `running_total_cost` for that resource:
     the sum of every cost logged for it, process-wide, since program
-    start. If a `Budget` is active on the current thread, each
-    resource's cost is also charged against it, which may raise
-    `BudgetExhaustedError`.
+    start. If a `Budget` is active, each resource's cost is also
+    charged against it, which may raise `BudgetExhaustedError`.
+
+    Works on both sync and `async def` functions.
 
     Raises:
         ValueError: if neither `amount` nor `amounts` is given.
@@ -41,9 +42,7 @@ def costs[**P, R](
         filename = inspect.getsourcefile(func) or func.__code__.co_filename
         lineno = func.__code__.co_firstlineno
 
-        @functools.wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            result = func(*args, **kwargs)
+        def record_costs() -> None:
             for key, spendable in resources.items():
                 with _running_totals_lock:
                     total = _running_totals.get(key, 0.0) + spendable.amount
@@ -58,6 +57,21 @@ def costs[**P, R](
                     total,
                 )
                 _tracking.charge_active_budgets(key, spendable.amount)
+
+        if inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+                result = await func(*args, **kwargs)
+                record_costs()
+                return result
+
+            return async_wrapper  # type: ignore[return-value]
+
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            result = func(*args, **kwargs)
+            record_costs()
             return result
 
         return wrapper

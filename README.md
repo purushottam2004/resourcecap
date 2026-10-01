@@ -32,6 +32,10 @@ This package is in its first version. It implements:
   stopping execution at that point.
 - Multi-resource tracking via `amounts`/`limits` and the `Spendable`
   class, so `costs` and `Budget` aren't limited to a single kind of cost.
+- Async support: `costs` can decorate `async def` functions, and
+  `Budget` works as an `async with` context manager too. Budgets are
+  isolated per `asyncio` task, so concurrent tasks don't interfere
+  with each other's spend.
 
 # Usage
 
@@ -104,3 +108,25 @@ with Budget(limits = {"money": Spendable(100, warn_only=True), "time": 15}):
 
 With `warn_only=True`, exceeding the `money` limit only logs a WARNING
 instead of raising, while `time` still stops execution as before.
+
+## Async
+
+`costs` and `Budget` work the same way with `async def` functions and
+`async with`:
+
+```python
+from resourcecap import costs, Budget
+
+@costs(amount = 10)
+async def foo():
+    pass
+
+async def main():
+    async with Budget(amount = 30):
+        for i in range(5):
+            await foo()
+```
+
+Each `asyncio` task gets its own view of which budgets are active, so
+two concurrent tasks each running under their own `Budget` can't exceed
+or interfere with each other's limit.

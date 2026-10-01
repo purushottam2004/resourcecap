@@ -1,3 +1,4 @@
+import contextvars
 import logging
 from collections.abc import Hashable, Mapping
 from types import TracebackType
@@ -15,13 +16,17 @@ class BudgetExhaustedError(Exception):
 class Budget:
     """Context manager enforcing a spending limit on `costs`-decorated calls made within it.
 
+    Works as both a sync (`with`) and async (`async with`) context
+    manager, tracking `@costs`-decorated calls made in either sync or
+    async functions.
+
     Pass `amount` for a single, default-resource limit, or `limits` to
     cap several resources at once, keyed the same way as `costs`'
     `amounts`. Values may be plain numbers or `Spendable` instances;
     use `Spendable(value, warn_only=True)` to only log a warning,
     instead of raising, when that specific resource's limit is exceeded.
 
-    Each resource's spend resets to zero every time the `with` block is
+    Each resource's spend resets to zero every time the block is
     entered, so a `Budget` instance can be reused across separate blocks.
     """
 
@@ -32,6 +37,7 @@ class Budget:
     ) -> None:
         self.limits = merge_resources(amount, limits)
         self.spent: dict[Hashable, float] = {}
+        self._token: contextvars.Token | None = None
 
     def charge(self, key: Hashable, amount: float) -> None:
         """Record spend against this budget's limit for `key`.
@@ -58,7 +64,7 @@ class Budget:
 
     def __enter__(self) -> "Budget":
         self.spent = {}
-        _tracking.push(self)
+        self._token = _tracking.push(self)
         return self
 
     def __exit__(
@@ -67,4 +73,17 @@ class Budget:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        _tracking.pop(self)
+        assert self._token is not None
+        _tracking.pop(self._token)
+        self._token = None
+
+    async def __aenter__(self) -> "Budget":
+        return self.__enter__()
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.__exit__(exc_type, exc, tb)
