@@ -42,6 +42,8 @@ This package is in its first version. It implements:
 - `Spendable(..., exhaust_at_start=True)` on a `Budget` limit, so a
   call can be aborted (or warned about) before it runs at all, if that
   resource's budget is already spent.
+- `Budget.get_status()`, a snapshot of how much was allocated, used,
+  and remains, per resource.
 
 # Usage
 
@@ -192,3 +194,30 @@ immediately, without calling the function — and a `warn_only` limit
 logs its warning at that point instead of after the call. Whatever
 `from_result` later adds is still charged (and can still raise or
 warn) once the call completes.
+
+## Checking status
+
+`Budget.get_status()` returns a snapshot of where things stand, per
+resource — how much was allocated, how much has been used, and how
+much remains:
+
+```python
+from resourcecap import costs, Budget
+
+@costs(amounts = {"money": 10, "time": 2})
+def foo():
+    pass
+
+with Budget(limits = {"money": 100, "time": 15}) as budget:
+    for i in range(3):
+        foo()
+    print(budget.get_status())
+```
+
+```
+{'money': {'allocated': 100, 'used': 30.0, 'remaining': 70.0},
+ 'time': {'allocated': 15, 'used': 6.0, 'remaining': 9.0}}
+```
+
+`remaining` can go negative for a `warn_only` resource, since spend
+is allowed to keep going past its limit.

@@ -267,3 +267,63 @@ def test_budget_exhausts_at_start_false_for_untracked_resource():
     budget = Budget(amount=10)
 
     assert budget.exhausts_at_start("unknown") is False
+
+
+def test_get_status_before_any_spend():
+    with Budget(amount=30) as budget:
+        status = budget.get_status()
+
+    assert status == {"cost": {"allocated": 30, "used": 0.0, "remaining": 30.0}}
+
+
+def test_get_status_reflects_spend_so_far():
+    @costs(amounts={"money": 10, "time": 2})
+    def foo():
+        pass
+
+    with Budget(limits={"money": 100, "time": 15}) as budget:
+        foo()
+        foo()
+        foo()
+        status = budget.get_status()
+
+    assert status == {
+        "money": {"allocated": 100, "used": 30.0, "remaining": 70.0},
+        "time": {"allocated": 15, "used": 6.0, "remaining": 9.0},
+    }
+
+
+def test_get_status_remaining_can_go_negative_for_warn_only():
+    @costs(amount=10)
+    def foo():
+        pass
+
+    with Budget(amount=Spendable(15, warn_only=True)) as budget:
+        foo()
+        foo()
+        status = budget.get_status()
+
+    assert status == {"cost": {"allocated": 15, "used": 20.0, "remaining": -5.0}}
+
+
+def test_get_status_only_includes_tracked_resources():
+    with Budget(limits={"money": 100}) as budget:
+        status = budget.get_status()
+
+    assert set(status) == {"money"}
+
+
+def test_get_status_resets_between_separate_with_blocks():
+    @costs(amount=10)
+    def foo():
+        pass
+
+    budget = Budget(amount=30)
+
+    with budget:
+        foo()
+
+    with budget:
+        status = budget.get_status()
+
+    assert status == {"cost": {"allocated": 30, "used": 0.0, "remaining": 30.0}}

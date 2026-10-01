@@ -46,6 +46,22 @@ class Budget:
         limit = self.limits.get(key)
         return limit is not None and limit.exhaust_at_start
 
+    def get_status(self) -> dict[Hashable, dict[str, float]]:
+        """Snapshot this budget's current state, per resource.
+
+        Each entry has `allocated` (that resource's limit), `used`
+        (spend charged against it so far), and `remaining` (`allocated
+        - used`, which can go negative for a `warn_only` resource).
+        """
+        return {
+            key: {
+                "allocated": limit.amount,
+                "used": self.spent.get(key, 0.0),
+                "remaining": limit.amount - self.spent.get(key, 0.0),
+            }
+            for key, limit in self.limits.items()
+        }
+
     def charge(self, key: Hashable, amount: float) -> None:
         """Record spend against this budget's limit for `key`.
 
