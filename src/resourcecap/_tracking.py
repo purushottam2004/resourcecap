@@ -1,24 +1,23 @@
+from __future__ import annotations
+
 import contextvars
 from collections.abc import Hashable
-from typing import Protocol
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ._budget import Budget
 
 
-class _Chargeable(Protocol):
-    def exhausts_at_start(self, key: Hashable) -> bool: ...
-
-    def charge(self, key: Hashable, amount: float) -> None: ...
-
-
-_active_budgets: contextvars.ContextVar[tuple[_Chargeable, ...]] = contextvars.ContextVar(
+_active_budgets: contextvars.ContextVar[tuple[Budget, ...]] = contextvars.ContextVar(
     "resourcecap_active_budgets", default=()
 )
 
 
-def push(budget: _Chargeable) -> contextvars.Token[tuple[_Chargeable, ...]]:
+def push(budget: Budget) -> contextvars.Token[tuple[Budget, ...]]:
     return _active_budgets.set((*_active_budgets.get(), budget))
 
 
-def pop(token: contextvars.Token[tuple[_Chargeable, ...]]) -> None:
+def pop(token: contextvars.Token[tuple[Budget, ...]]) -> None:
     _active_budgets.reset(token)
 
 

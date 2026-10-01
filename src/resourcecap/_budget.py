@@ -41,7 +41,7 @@ class Budget:
         self.limits = merge_resources(amount, limits)
         self.spent: dict[Hashable, float] = {}
         self._lock = threading.Lock()
-        self._token: contextvars.Token[tuple[_tracking._Chargeable, ...]] | None = None
+        self._token: contextvars.Token[tuple[Budget, ...]] | None = None
 
     def exhausts_at_start(self, key: Hashable) -> bool:
         """Whether `key`'s limit should be enforced before the call runs."""
