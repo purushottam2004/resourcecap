@@ -3,7 +3,7 @@ import inspect
 import logging
 import threading
 from collections.abc import Awaitable, Callable, Hashable, Mapping
-from typing import cast
+from typing import Any, cast
 
 from . import _tracking
 from ._resources import Spendable, merge_resources
@@ -22,9 +22,12 @@ def costs[**P, R](
 
     Pass `amount` to track a single, default resource, or `amounts` to
     track several resources at once (e.g. money and time), keyed by any
-    hashable name. Values may be plain numbers or `Spendable` instances;
-    use `Spendable(value, warn_only=True)` so an active `Budget` only
-    warns, instead of raising, when that resource's limit is exceeded.
+    hashable name. Values may be plain numbers or `Spendable` instances.
+    A `Spendable` can depend on the call: `Spendable(from_args=...)` and
+    `Spendable(from_result=...)` compute (part of) the cost from the
+    decorated function's arguments and/or return value. Use
+    `Spendable(value, warn_only=True)` so an active `Budget` only warns,
+    instead of raising, when that resource's limit is exceeded.
 
     Each call logs one INFO-level line per resource via a logger named
     "resourcecap", including a `running_total_cost` for that resource:
@@ -43,10 +46,11 @@ def costs[**P, R](
         filename = inspect.getsourcefile(func) or func.__code__.co_filename
         lineno = func.__code__.co_firstlineno
 
-        def record_costs() -> None:
+        def record_costs(args: tuple[Any, ...], kwargs: dict[str, Any], result: R) -> None:
             for key, spendable in resources.items():
+                resolved = spendable.resolve(args, kwargs, result)
                 with _running_totals_lock:
-                    total = _running_totals.get(key, 0.0) + spendable.amount
+                    total = _running_totals.get(key, 0.0) + resolved.amount
                     _running_totals[key] = total
                 logger.info(
                     "function=%s file=%s line=%d resource=%s cost=%s running_total_cost=%s",
@@ -54,10 +58,10 @@ def costs[**P, R](
                     filename,
                     lineno,
                     key,
-                    spendable.amount,
+                    resolved.amount,
                     total,
                 )
-                _tracking.charge_active_budgets(key, spendable.amount)
+                _tracking.charge_active_budgets(key, resolved.amount)
 
         if inspect.iscoroutinefunction(func):
             async_func = cast(Callable[P, Awaitable[R]], func)
@@ -65,7 +69,7 @@ def costs[**P, R](
             @functools.wraps(func)
             async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
                 result = await async_func(*args, **kwargs)
-                record_costs()
+                record_costs(args, kwargs, result)
                 return result
 
             return async_wrapper  # type: ignore[return-value]
@@ -73,7 +77,7 @@ def costs[**P, R](
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             result = func(*args, **kwargs)
-            record_costs()
+            record_costs(args, kwargs, result)
             return result
 
         return wrapper

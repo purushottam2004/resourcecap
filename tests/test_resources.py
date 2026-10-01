@@ -48,3 +48,53 @@ def test_merge_resources_amounts_overrides_amount_on_key_collision():
     resources = merge_resources(10, {DEFAULT_RESOURCE: 99})
 
     assert resources[DEFAULT_RESOURCE].amount == 99
+
+
+def test_spendable_static_resolve_returns_itself():
+    spendable = Spendable(10)
+
+    assert spendable.resolve((), {}, None) is spendable
+
+
+def test_spendable_from_args_resolves_using_call_args():
+    spendable = Spendable(from_args=lambda n: n * 2)
+
+    resolved = spendable.resolve((5,), {}, None)
+
+    assert resolved.amount == 10
+
+
+def test_spendable_from_args_resolves_using_call_kwargs():
+    spendable = Spendable(from_args=lambda n: n * 2)
+
+    resolved = spendable.resolve((), {"n": 5}, None)
+
+    assert resolved.amount == 10
+
+
+def test_spendable_from_result_resolves_using_return_value():
+    spendable = Spendable(from_result=lambda result: len(result))
+
+    resolved = spendable.resolve((), {}, "hello")
+
+    assert resolved.amount == 5
+
+
+def test_spendable_combines_amount_from_args_and_from_result():
+    spendable = Spendable(
+        5,
+        from_args=lambda n: n,
+        from_result=lambda result: len(result),
+    )
+
+    resolved = spendable.resolve((2,), {}, "ab")
+
+    assert resolved.amount == 5 + 2 + 2
+
+
+def test_spendable_resolve_preserves_warn_only():
+    spendable = Spendable(from_args=lambda n: n, warn_only=True)
+
+    resolved = spendable.resolve((3,), {}, None)
+
+    assert resolved.warn_only is True

@@ -36,6 +36,9 @@ This package is in its first version. It implements:
   `Budget` works as an `async with` context manager too. Budgets are
   isolated per `asyncio` task, so concurrent tasks don't interfere
   with each other's spend.
+- Dynamic cost via `Spendable(from_args=..., from_result=...)`, so a
+  call's cost can depend on the arguments it was called with and/or
+  the value it returned, instead of only being a fixed number.
 
 # Usage
 
@@ -130,3 +133,28 @@ async def main():
 Each `asyncio` task gets its own view of which budgets are active, so
 two concurrent tasks each running under their own `Budget` can't exceed
 or interfere with each other's limit.
+
+## Dynamic cost
+
+A `Spendable`'s cost doesn't have to be fixed. `from_args` computes
+(part of) it from the decorated function's call arguments, and
+`from_result` computes (part of) it from the value it returned. Both
+can be combined with each other and with a static `amount`, since all
+three are just added together:
+
+```python
+from resourcecap import costs, Spendable
+
+@costs(amounts = {
+    "money": Spendable(5, from_args=lambda prompt: len(prompt) * 0.001,
+                           from_result=lambda response: len(response) * 0.002),
+    "time": Spendable(1),
+})
+def call_llm(prompt):
+    return some_llm_call(prompt)
+```
+
+Here `money`'s cost for each call is `5 + len(prompt) * 0.001 +
+len(response) * 0.002`, resolved fresh after every call, while `time`
+stays a fixed `1` per call. A `Budget`'s `limits` are always static —
+only a `costs()` call's own `amount`/`amounts` can be dynamic.

@@ -147,3 +147,14 @@ def test_budget_mixed_warn_only_and_strict_resources(caplog):
 
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert len(warnings) >= 1
+
+
+def test_budget_enforces_dynamic_cost_from_args():
+    @costs(amount=Spendable(from_args=lambda n: n))
+    def spend(n):
+        pass
+
+    with pytest.raises(BudgetExhaustedError), Budget(amount=10):
+        spend(4)
+        spend(4)
+        spend(4)

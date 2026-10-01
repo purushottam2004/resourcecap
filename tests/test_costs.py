@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from resourcecap import costs
+from resourcecap import Spendable, costs
 
 
 def test_costs_logs_info_with_function_name_and_cost(caplog):
@@ -132,3 +132,42 @@ def test_costs_amounts_logs_one_line_per_resource(caplog):
 def test_costs_requires_amount_or_amounts():
     with pytest.raises(ValueError, match="amount"):
         costs()
+
+
+def test_costs_amount_from_args(caplog):
+    @costs(amount=Spendable(from_args=lambda n: n * 2))
+    def foo(n):
+        pass
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        foo(5)
+
+    assert "cost=10" in caplog.records[0].message
+
+
+def test_costs_amount_from_result(caplog):
+    @costs(amount=Spendable(from_result=lambda result: len(result)))
+    def foo():
+        return "hello"
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        foo()
+
+    assert "cost=5" in caplog.records[0].message
+
+
+def test_costs_amount_combines_static_args_and_result(caplog):
+    @costs(
+        amount=Spendable(
+            5,
+            from_args=lambda n: n,
+            from_result=lambda result: len(result),
+        )
+    )
+    def foo(n):
+        return "ab"
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        foo(2)
+
+    assert "cost=9" in caplog.records[0].message
