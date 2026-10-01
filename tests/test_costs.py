@@ -75,3 +75,39 @@ def test_costs_logs_qualname_for_methods(caplog):
 
     record = caplog.records[0]
     assert "Foo.method" in record.message
+
+
+def test_costs_logs_running_total_cost(caplog):
+    @costs(amount=10)
+    def foo():
+        pass
+
+    @costs(amount=5)
+    def bar():
+        pass
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        foo()
+        bar()
+        foo()
+
+    assert "running_total_cost=10" in caplog.records[0].message
+    assert "running_total_cost=15" in caplog.records[1].message
+    assert "running_total_cost=25" in caplog.records[2].message
+
+
+def test_costs_running_total_cost_shared_across_functions(caplog):
+    @costs(amount=3)
+    def a():
+        pass
+
+    @costs(amount=4)
+    def b():
+        pass
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        a()
+        b()
+
+    assert "running_total_cost=3" in caplog.records[0].message
+    assert "running_total_cost=7" in caplog.records[1].message

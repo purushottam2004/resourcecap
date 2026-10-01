@@ -21,7 +21,10 @@ This package aims to solve this problem
 
 This package is in its first version. So far, only the `costs` decorator is
 implemented. It logs the cost of a function every time it completes, at
-INFO level, via a logger named `resourcecap`. 
+INFO level, via a logger named `resourcecap`. Alongside each call's own
+cost, it also logs a `running_total_cost`: the sum of every cost logged by
+any `@costs`-decorated function so far, process-wide, starting from zero
+at program start.
 
 # Usage
 
@@ -32,7 +35,9 @@ INFO level, via a logger named `resourcecap`.
 >>  pass
 >>
 >> foo()
+>> foo()
 
 Each call to `foo()` logs something like:
 
->> function=foo file=/path/to/file.py line=3 cost=10
+>> function=foo file=/path/to/file.py line=3 cost=10 running_total_cost=10
+>> function=foo file=/path/to/file.py line=3 cost=10 running_total_cost=20
