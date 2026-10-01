@@ -83,6 +83,17 @@ Each call to `foo()` logs something like:
 the above code will stop execution at that point and raise BudgetExhaustedError,
 after the 4th call to `foo()` pushes the spend from 30 to 40.
 
+`BudgetExhaustedError` carries structured fields, not just a message, so you
+can handle it programmatically without parsing text:
+
+```python
+try:
+    with Budget(amount = 30):
+        [foo() for i in range(5)]
+except BudgetExhaustedError as e:
+    print(e.resource, e.limit, e.spent)  # "cost" 30 40.0
+```
+
 A `Budget` instance can be reused across separate, non-overlapping `with`
 blocks (its spend resets each time), but it can't be open twice at once —
 entering it while it's already open, from a concurrent task/thread or

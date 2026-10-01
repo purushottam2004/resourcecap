@@ -27,6 +27,21 @@ def test_budget_raises_when_exceeded():
             foo()
 
 
+def test_budget_exhausted_error_carries_structured_fields():
+    @costs(amount=10)
+    def foo():
+        pass
+
+    with pytest.raises(BudgetExhaustedError) as excinfo, Budget(amount=30):
+        for _ in range(5):
+            foo()
+
+    error = excinfo.value
+    assert error.resource == "cost"
+    assert error.limit == 30
+    assert error.spent == 40.0
+
+
 def test_budget_stops_execution_at_the_point_of_exhaustion():
     calls = []
 

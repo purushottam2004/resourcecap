@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-01
+
+### Changed
+
+- `BudgetExhaustedError` now carries structured `resource`, `limit`, and
+  `spent` attributes, instead of only a formatted message. Code that wants
+  to react to which resource blew no longer has to parse the error string.
+
 ## [0.2.2] - 2026-10-01
 
 ### Added
@@ -82,7 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   completes, via a logger named `resourcecap`, including a process-wide
   `running_total_cost` for that resource.
 
-[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/purushottam2004/resourcecap/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/purushottam2004/resourcecap/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/purushottam2004/resourcecap/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/purushottam2004/resourcecap/compare/v0.1.0...v0.2.0

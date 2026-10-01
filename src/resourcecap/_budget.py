@@ -11,7 +11,19 @@ logger = logging.getLogger("resourcecap")
 
 
 class BudgetExhaustedError(Exception):
-    """Raised when a `Budget`'s limit for some resource is exceeded."""
+    """Raised when a `Budget`'s limit for some resource is exceeded.
+
+    Attributes:
+        resource: the key of the resource whose limit was exceeded.
+        limit: that resource's limit.
+        spent: how much had been spent when the limit was exceeded.
+    """
+
+    def __init__(self, resource: Hashable, limit: float, spent: float) -> None:
+        super().__init__(f"budget for resource {resource!r} of {limit} exhausted: spent {spent}")
+        self.resource = resource
+        self.limit = limit
+        self.spent = spent
 
 
 class BudgetReentryError(RuntimeError):
@@ -100,9 +112,7 @@ class Budget:
                     "resource=%s limit=%s exhausted: spent=%s", key, limit.amount, spent
                 )
             else:
-                raise BudgetExhaustedError(
-                    f"budget for resource {key!r} of {limit.amount} exhausted: spent {spent}"
-                )
+                raise BudgetExhaustedError(key, limit.amount, spent)
 
     def __enter__(self) -> "Budget":
         with self._lock:
