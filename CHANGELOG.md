@@ -1,0 +1,57 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- `publish.yaml` CI workflow: lints, type-checks and tests the project, then
+  publishes to PyPI via Trusted Publishing whenever a `v*` tag is pushed.
+
+## [0.2.0] - 2026-10-01
+
+### Added
+
+- `Budget` context manager (`with Budget(amount=...)`), enforcing a spending
+  limit on `@costs`-decorated calls made within it and raising
+  `BudgetExhaustedError` when that limit is exceeded.
+- Multi-resource tracking: `costs(amounts={...})` and `Budget(limits={...})`
+  let a single call track several kinds of cost at once (e.g. money and
+  time), each keyed by any hashable name.
+- `Spendable`, the shared value type for `costs`' `amount`/`amounts` and
+  `Budget`'s `amount`/`limits`, with a `warn_only` flag so a specific
+  resource can log a warning instead of raising when its limit is exceeded.
+- Async support: `costs` can decorate `async def` functions, and `Budget`
+  works as an `async with` context manager. Active budgets are tracked via
+  `contextvars`, so concurrent `asyncio` tasks under separate budgets don't
+  interfere with each other's spend.
+- Dynamic cost via `Spendable(from_args=..., from_result=...)`, so a call's
+  cost can depend on the arguments it was called with and/or the value it
+  returned, instead of only being a fixed number. Combines additively with
+  a static `amount`.
+- `Spendable(..., exhaust_at_start=True)` on a `Budget` limit: charges what's
+  already knowable before a call runs (the static amount and `from_args`
+  part) against that limit first, so an already-exhausted budget can raise
+  (or warn) before the call happens at all, instead of only afterwards. Set
+  independently per resource.
+- `Budget.get_status()`: a snapshot per resource of `allocated`, `used`, and
+  `remaining`.
+- `py.typed` marker and mypy strict type checking (in CI), so the package's
+  type hints are checked and usable by downstream type checkers.
+- MIT license, GitHub Actions CI (ruff + mypy + pytest), README badges.
+
+## [0.1.0] - 2026-10-01
+
+### Added
+
+- `costs` decorator: logs a function's cost at INFO level every time it
+  completes, via a logger named `resourcecap`, including a process-wide
+  `running_total_cost` for that resource.
+
+[Unreleased]: https://github.com/purushottam2004/resourcecap/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/purushottam2004/resourcecap/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/purushottam2004/resourcecap/releases/tag/v0.1.0
