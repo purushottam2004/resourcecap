@@ -3,6 +3,7 @@ name = "resourcecap"
 version = "0.1.0"
 description = "A python package to limit the resource usage of any program"
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "purushottam-dafure", email = "purushottamdafure@gmail.com" }
 ]
