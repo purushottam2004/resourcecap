@@ -1,5 +1,7 @@
 import logging
 
+import pytest
+
 from resourcecap import costs
 
 
@@ -111,3 +113,22 @@ def test_costs_running_total_cost_shared_across_functions(caplog):
 
     assert "running_total_cost=3" in caplog.records[0].message
     assert "running_total_cost=7" in caplog.records[1].message
+
+
+def test_costs_amounts_logs_one_line_per_resource(caplog):
+    @costs(amounts={"money": 10, "time": 2})
+    def foo():
+        pass
+
+    with caplog.at_level(logging.INFO, logger="resourcecap"):
+        foo()
+
+    assert len(caplog.records) == 2
+    messages = [r.message for r in caplog.records]
+    assert any("resource=money" in m and "cost=10" in m for m in messages)
+    assert any("resource=time" in m and "cost=2" in m for m in messages)
+
+
+def test_costs_requires_amount_or_amounts():
+    with pytest.raises(ValueError, match="amount"):
+        costs()

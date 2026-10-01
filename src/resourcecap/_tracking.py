@@ -1,9 +1,10 @@
 import threading
+from collections.abc import Hashable
 from typing import Protocol
 
 
 class _Chargeable(Protocol):
-    def charge(self, amount: float) -> None: ...
+    def charge(self, key: Hashable, amount: float) -> None: ...
 
 
 _local = threading.local()
@@ -25,6 +26,6 @@ def pop(budget: _Chargeable) -> None:
     _stack().remove(budget)
 
 
-def charge_active_budgets(amount: float) -> None:
+def charge_active_budgets(key: Hashable, amount: float) -> None:
     for budget in list(_stack()):
-        budget.charge(amount)
+        budget.charge(key, amount)

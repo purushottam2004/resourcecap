@@ -1,6 +1,8 @@
+import logging
+
 import pytest
 
-from resourcecap import Budget, BudgetExhaustedError, costs
+from resourcecap import Budget, BudgetExhaustedError, Spendable, costs
 
 
 def test_budget_allows_calls_within_amount():
@@ -84,3 +86,64 @@ def test_budget_unaffected_by_calls_outside_it():
 
     with Budget(amount=10):
         pass
+
+
+def test_budget_tracks_multiple_resources_independently():
+    @costs(amounts={"money": 10, "time": 1})
+    def foo():
+        pass
+
+    with (
+        pytest.raises(BudgetExhaustedError, match="time"),
+        Budget(limits={"money": 100, "time": 3}),
+    ):
+        for _ in range(5):
+            foo()
+
+
+def test_budget_ignores_untracked_resources():
+    @costs(amounts={"money": 10, "time": 1})
+    def foo():
+        pass
+
+    with Budget(limits={"money": 100}):
+        for _ in range(5):
+            foo()
+
+
+def test_budget_warn_only_logs_instead_of_raising(caplog):
+    @costs(amount=10)
+    def foo():
+        pass
+
+    with (
+        caplog.at_level(logging.WARNING, logger="resourcecap"),
+        Budget(amount=Spendable(15, warn_only=True)),
+    ):
+        for _ in range(5):
+            foo()
+
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 4
+
+
+def test_budget_mixed_warn_only_and_strict_resources(caplog):
+    @costs(amounts={"money": 10, "time": 10})
+    def foo():
+        pass
+
+    with (
+        caplog.at_level(logging.WARNING, logger="resourcecap"),
+        pytest.raises(BudgetExhaustedError, match="time"),
+        Budget(
+            limits={
+                "money": Spendable(15, warn_only=True),
+                "time": Spendable(15),
+            }
+        ),
+    ):
+        for _ in range(5):
+            foo()
+
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) >= 1

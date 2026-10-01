@@ -24,39 +24,83 @@ This package is in its first version. It implements:
 - The `costs` decorator, which logs the cost of a function every time it
   completes, at INFO level, via a logger named `resourcecap`. Alongside
   each call's own cost, it also logs a `running_total_cost`: the sum of
-  every cost logged by any `@costs`-decorated function so far,
-  process-wide, starting from zero at program start.
+  every cost logged for that resource, process-wide, starting from zero
+  at program start.
 - The `Budget` context manager, which tracks the cost of any
   `@costs`-decorated calls made inside its `with` block and raises
-  `BudgetExhaustedError` as soon as that cost exceeds its `amount`,
+  `BudgetExhaustedError` as soon as that cost exceeds its limit,
   stopping execution at that point.
+- Multi-resource tracking via `amounts`/`limits` and the `Spendable`
+  class, so `costs` and `Budget` aren't limited to a single kind of cost.
 
 # Usage
 
->> from resourcecap import costs
->>
->> @costs(amount = 10)
->> def foo():
->>  pass
->>
->> foo()
->> foo()
+```python
+ from resourcecap import costs
+
+ @costs(amount = 10)
+ def foo():
+  pass
+
+ foo()
+ foo()
+```
 
 Each call to `foo()` logs something like:
 
->> function=foo file=/path/to/file.py line=3 cost=10 running_total_cost=10
->> function=foo file=/path/to/file.py line=3 cost=10 running_total_cost=20
+>>function=foo file=/path/to/file.py line=3 resource=cost cost=10 running_total_cost=10
+>>function=foo file=/path/to/file.py line=3 resource=cost cost=10 running_total_cost=20
 
 ## Budgeting
 
->> from resourcecap import costs, Budget
->>
->> @costs(amount = 10)
->> def foo():
->>  pass
->>
->> with Budget(amount = 30):
->>  [foo() for i in range(5)]
+```python
+ from resourcecap import costs, Budget
+
+ @costs(amount = 10)
+ def foo():
+  pass
+
+ with Budget(amount = 30):
+  [foo() for i in range(5)]
+```
 
 the above code will stop execution at that point and raise BudgetExhaustedError,
 after the 4th call to `foo()` pushes the spend from 30 to 40.
+
+## Multiple resources
+
+`amount` on `costs`/`Budget` tracks a single, default resource. To track
+several kinds of cost at once (e.g. money and time), use `amounts` on
+`costs` and `limits` on `Budget`, keyed by any name you choose:
+
+``` python
+from resourcecap import costs, Budget
+
+@costs(amounts = {"money": 10, "time": 2})
+def foo():
+ pass
+
+with Budget(limits = {"money": 100, "time": 15}):
+ [foo() for i in range(10)]
+```
+
+This raises `BudgetExhaustedError` for whichever resource's limit is hit
+first — here, `time` runs out (8 calls x 2 = 16 > 15) well before `money`
+does.
+
+Values for `amount(s)`/`limit(s)` can also be `Spendable` instances, which
+let a specific resource opt out of raising:
+
+```python
+from resourcecap import costs, Budget, Spendable
+
+@costs(amounts = {"money": 10, "time": 2})
+def foo():
+ pass
+
+with Budget(limits = {"money": Spendable(100, warn_only=True), "time": 15}):
+ [foo() for i in range(10)]
+```
+
+With `warn_only=True`, exceeding the `money` limit only logs a WARNING
+instead of raising, while `time` still stops execution as before.
