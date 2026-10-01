@@ -16,6 +16,10 @@ class Spendable:
     are additive and independent, so they can be combined freely, e.g.
     `Spendable(5, from_args=..., from_result=...)`.
 
+    `warn_only` and `exhaust_at_start` only matter when a `Spendable` is
+    used as one of a `Budget`'s `limits` — they're meaningless on a
+    `costs()` call's `amount`/`amounts`, which never enforce anything.
+
     Args:
         amount: a fixed contribution to this resource's cost.
         from_args: if given, called with the same `*args, **kwargs` the
@@ -26,6 +30,12 @@ class Spendable:
         warn_only: if True, a `Budget` only logs a warning instead of
             raising `BudgetExhaustedError` when this resource's limit
             is exceeded.
+        exhaust_at_start: if True, as a `Budget` limit, this resource is
+            charged what's knowable before the decorated call runs (the
+            static amount and `from_args` part of its cost) instead of
+            only after it completes, so an already-exhausted budget can
+            raise (or, with `warn_only`, just warn) before the call
+            happens at all.
     """
 
     def __init__(
@@ -35,16 +45,19 @@ class Spendable:
         from_args: Callable[..., float] | None = None,
         from_result: Callable[[Any], float] | None = None,
         warn_only: bool = False,
+        exhaust_at_start: bool = False,
     ) -> None:
         self.amount = amount
         self.from_args = from_args
         self.from_result = from_result
         self.warn_only = warn_only
+        self.exhaust_at_start = exhaust_at_start
 
     def __repr__(self) -> str:
         return (
             f"Spendable(amount={self.amount!r}, from_args={self.from_args!r}, "
-            f"from_result={self.from_result!r}, warn_only={self.warn_only!r})"
+            f"from_result={self.from_result!r}, warn_only={self.warn_only!r}, "
+            f"exhaust_at_start={self.exhaust_at_start!r})"
         )
 
     @classmethod
@@ -67,7 +80,22 @@ class Spendable:
             total += self.from_args(*args, **kwargs)
         if self.from_result is not None:
             total += self.from_result(result)
-        return Spendable(total, warn_only=self.warn_only)
+        return Spendable(total, warn_only=self.warn_only, exhaust_at_start=self.exhaust_at_start)
+
+    def resolve_partial(self, args: tuple[Any, ...], kwargs: dict[str, Any]) -> "Spendable":
+        """Like `resolve`, but only the static `amount` and `from_args`.
+
+        Used before the decorated function has run, when `from_result`
+        can't be computed yet because there's no result.
+        """
+        if self.from_args is None:
+            return self
+
+        return Spendable(
+            self.amount + self.from_args(*args, **kwargs),
+            warn_only=self.warn_only,
+            exhaust_at_start=self.exhaust_at_start,
+        )
 
 
 def merge_resources(

@@ -35,6 +35,17 @@ def costs[**P, R](
     start. If a `Budget` is active, each resource's cost is also
     charged against it, which may raise `BudgetExhaustedError`.
 
+    If an active `Budget`'s limit for a resource was given as
+    `Spendable(value, exhaust_at_start=True)`, that resource's static
+    `amount` and `from_args` contribution (not `from_result` — there's
+    no result yet) are charged against it before the decorated function
+    runs, instead of only after it completes. A non-`warn_only` limit
+    that's already exhausted then raises `BudgetExhaustedError`
+    immediately, without calling the function at all; a `warn_only`
+    limit logs its warning at that point instead of afterwards.
+    Whatever `from_result` later adds is still charged (and may itself
+    raise or warn) after the call completes, as usual. See `Budget`.
+
     Works on both sync and `async def` functions.
 
     Raises:
@@ -46,7 +57,20 @@ def costs[**P, R](
         filename = inspect.getsourcefile(func) or func.__code__.co_filename
         lineno = func.__code__.co_firstlineno
 
-        def record_costs(args: tuple[Any, ...], kwargs: dict[str, Any], result: R) -> None:
+        def charge_at_start(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[Hashable, float]:
+            partial_amounts: dict[Hashable, float] = {}
+            for key, spendable in resources.items():
+                partial = spendable.resolve_partial(args, kwargs)
+                partial_amounts[key] = partial.amount
+                _tracking.charge_active_budgets_at_start(key, partial.amount)
+            return partial_amounts
+
+        def record_costs(
+            args: tuple[Any, ...],
+            kwargs: dict[str, Any],
+            result: R,
+            partial_amounts: dict[Hashable, float],
+        ) -> None:
             for key, spendable in resources.items():
                 resolved = spendable.resolve(args, kwargs, result)
                 with _running_totals_lock:
@@ -61,23 +85,27 @@ def costs[**P, R](
                     resolved.amount,
                     total,
                 )
-                _tracking.charge_active_budgets(key, resolved.amount)
+                _tracking.charge_active_budgets_after(
+                    key, resolved.amount, partial_amounts.get(key, 0.0)
+                )
 
         if inspect.iscoroutinefunction(func):
             async_func = cast(Callable[P, Awaitable[R]], func)
 
             @functools.wraps(func)
             async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+                partial_amounts = charge_at_start(args, kwargs)
                 result = await async_func(*args, **kwargs)
-                record_costs(args, kwargs, result)
+                record_costs(args, kwargs, result, partial_amounts)
                 return result
 
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            partial_amounts = charge_at_start(args, kwargs)
             result = func(*args, **kwargs)
-            record_costs(args, kwargs, result)
+            record_costs(args, kwargs, result, partial_amounts)
             return result
 
         return wrapper

@@ -22,9 +22,11 @@ class Budget:
 
     Pass `amount` for a single, default-resource limit, or `limits` to
     cap several resources at once, keyed the same way as `costs`'
-    `amounts`. Values may be plain numbers or `Spendable` instances;
-    use `Spendable(value, warn_only=True)` to only log a warning,
-    instead of raising, when that specific resource's limit is exceeded.
+    `amounts`. Values may be plain numbers or `Spendable` instances.
+    Use `Spendable(value, warn_only=True)` to only log a warning,
+    instead of raising, when that specific resource's limit is
+    exceeded, and `Spendable(value, exhaust_at_start=True)` to enforce
+    that limit before the decorated call runs rather than after.
 
     Each resource's spend resets to zero every time the block is
     entered, so a `Budget` instance can be reused across separate blocks.
@@ -38,6 +40,11 @@ class Budget:
         self.limits = merge_resources(amount, limits)
         self.spent: dict[Hashable, float] = {}
         self._token: contextvars.Token[tuple[_tracking._Chargeable, ...]] | None = None
+
+    def exhausts_at_start(self, key: Hashable) -> bool:
+        """Whether `key`'s limit should be enforced before the call runs."""
+        limit = self.limits.get(key)
+        return limit is not None and limit.exhaust_at_start
 
     def charge(self, key: Hashable, amount: float) -> None:
         """Record spend against this budget's limit for `key`.

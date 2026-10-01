@@ -158,3 +158,112 @@ def test_budget_enforces_dynamic_cost_from_args():
         spend(4)
         spend(4)
         spend(4)
+
+
+def test_exhaust_at_start_raises_before_calling_function():
+    calls = []
+
+    @costs(amount=Spendable(from_args=lambda n: n))
+    def spend(n):
+        calls.append(n)
+
+    with (
+        pytest.raises(BudgetExhaustedError),
+        Budget(amount=Spendable(10, exhaust_at_start=True)),
+    ):
+        spend(4)
+        spend(4)
+        spend(4)
+
+    assert calls == [4, 4]
+
+
+def test_exhaust_at_start_still_charges_from_result_after_call():
+    @costs(amount=Spendable(from_args=lambda n: n, from_result=lambda r: len(r)))
+    def spend(n):
+        return "x" * n
+
+    with (
+        pytest.raises(BudgetExhaustedError),
+        Budget(amount=Spendable(10, exhaust_at_start=True)),
+    ):
+        spend(4)
+        spend(4)
+
+
+def test_exhaust_at_start_warn_only_warns_before_calling_function(caplog):
+    calls = []
+
+    @costs(amount=Spendable(from_args=lambda n: n))
+    def spend(n):
+        calls.append(n)
+
+    with (
+        caplog.at_level(logging.WARNING, logger="resourcecap"),
+        Budget(amount=Spendable(5, warn_only=True, exhaust_at_start=True)),
+    ):
+        spend(10)
+
+    assert calls == [10]
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+
+
+def test_exhaust_at_start_false_runs_function_even_if_exhausted():
+    calls = []
+
+    @costs(amount=Spendable(from_args=lambda n: n))
+    def spend(n):
+        calls.append(n)
+
+    with pytest.raises(BudgetExhaustedError), Budget(amount=10):
+        spend(4)
+        spend(4)
+        spend(4)
+
+
+def test_exhaust_at_start_is_independent_per_resource():
+    calls = []
+
+    @costs(
+        amounts={
+            "money": Spendable(from_args=lambda n: n),
+            "time": Spendable(from_args=lambda n: n),
+        }
+    )
+    def spend(n):
+        calls.append(n)
+
+    with (
+        pytest.raises(BudgetExhaustedError, match="money"),
+        Budget(
+            limits={
+                "money": Spendable(10, exhaust_at_start=True),
+                "time": Spendable(1000),
+            }
+        ),
+    ):
+        spend(4)
+        spend(4)
+        spend(4)
+
+    assert calls == [4, 4]
+
+
+def test_budget_exhausts_at_start_defaults_to_false():
+    budget = Budget(amount=10)
+
+    assert budget.exhausts_at_start("cost") is False
+
+
+def test_budget_exhausts_at_start_reflects_limit_spendable():
+    budget = Budget(limits={"money": Spendable(10, exhaust_at_start=True), "time": 10})
+
+    assert budget.exhausts_at_start("money") is True
+    assert budget.exhausts_at_start("time") is False
+
+
+def test_budget_exhausts_at_start_false_for_untracked_resource():
+    budget = Budget(amount=10)
+
+    assert budget.exhausts_at_start("unknown") is False

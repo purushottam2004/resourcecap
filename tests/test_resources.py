@@ -8,6 +8,7 @@ def test_spendable_defaults_to_not_warn_only():
 
     assert spendable.amount == 10
     assert spendable.warn_only is False
+    assert spendable.exhaust_at_start is False
 
 
 def test_spendable_coerce_wraps_plain_number():
@@ -98,3 +99,41 @@ def test_spendable_resolve_preserves_warn_only():
     resolved = spendable.resolve((3,), {}, None)
 
     assert resolved.warn_only is True
+
+
+def test_spendable_resolve_partial_static_returns_itself():
+    spendable = Spendable(10)
+
+    assert spendable.resolve_partial((), {}) is spendable
+
+
+def test_spendable_resolve_partial_ignores_from_result():
+    spendable = Spendable(5, from_args=lambda n: n, from_result=lambda r: 1000)
+
+    resolved = spendable.resolve_partial((3,), {})
+
+    assert resolved.amount == 8
+
+
+def test_spendable_resolve_partial_without_from_args_is_just_static_amount():
+    spendable = Spendable(5, from_result=lambda r: 1000)
+
+    resolved = spendable.resolve_partial((), {})
+
+    assert resolved.amount == 5
+
+
+def test_spendable_resolve_preserves_exhaust_at_start():
+    spendable = Spendable(from_args=lambda n: n, exhaust_at_start=True)
+
+    resolved = spendable.resolve((3,), {}, None)
+
+    assert resolved.exhaust_at_start is True
+
+
+def test_spendable_resolve_partial_preserves_exhaust_at_start():
+    spendable = Spendable(from_args=lambda n: n, exhaust_at_start=True)
+
+    resolved = spendable.resolve_partial((3,), {})
+
+    assert resolved.exhaust_at_start is True

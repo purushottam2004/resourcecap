@@ -39,6 +39,9 @@ This package is in its first version. It implements:
 - Dynamic cost via `Spendable(from_args=..., from_result=...)`, so a
   call's cost can depend on the arguments it was called with and/or
   the value it returned, instead of only being a fixed number.
+- `Spendable(..., exhaust_at_start=True)` on a `Budget` limit, so a
+  call can be aborted (or warned about) before it runs at all, if that
+  resource's budget is already spent.
 
 # Usage
 
@@ -158,3 +161,34 @@ Here `money`'s cost for each call is `5 + len(prompt) * 0.001 +
 len(response) * 0.002`, resolved fresh after every call, while `time`
 stays a fixed `1` per call. A `Budget`'s `limits` are always static —
 only a `costs()` call's own `amount`/`amounts` can be dynamic.
+
+## Exhausting at the start
+
+By default, a decorated function always runs before its cost is
+charged — so if that function is itself expensive or has side effects
+(e.g. it calls a paid API), a `Budget` only finds out it's exhausted
+*after* paying for the call that broke it. A `Budget` limit's
+`exhaust_at_start=True` charges what's already knowable before the
+call — the static `amount` and `from_args` part of that resource's
+cost, since `from_result` has no result yet — against that limit
+first, before the call happens:
+
+```python
+from resourcecap import costs, Spendable, Budget
+
+@costs(amount = Spendable(from_args=lambda prompt: len(prompt)))
+def call_llm(prompt):
+    return some_llm_call(prompt)
+
+with Budget(amount = Spendable(100, exhaust_at_start=True)):
+    call_llm(some_long_prompt)  # raises before calling some_llm_call at all, if already over budget
+```
+
+It's a property of the `Budget`'s limit, not of `costs()` — each
+resource in a `Budget`'s `limits` can set `exhaust_at_start`
+independently, same as `warn_only`. If a resource's limit is already
+exceeded, a non-`warn_only` limit raises `BudgetExhaustedError`
+immediately, without calling the function — and a `warn_only` limit
+logs its warning at that point instead of after the call. Whatever
+`from_result` later adds is still charged (and can still raise or
+warn) once the call completes.
