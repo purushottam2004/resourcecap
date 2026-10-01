@@ -1,5 +1,9 @@
 # Welcome
 
+[![Lint and Test](https://github.com/purushottam2004/resourcecap/actions/workflows/lint-and-test.yaml/badge.svg)](https://github.com/purushottam2004/resourcecap/actions/workflows/lint-and-test.yaml)
+[![PyPI version](https://img.shields.io/pypi/v/resourcecap.svg)](https://pypi.org/project/resourcecap/)
+[![Python versions](https://img.shields.io/pypi/pyversions/resourcecap.svg)](https://pypi.org/project/resourcecap/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/purushottam2004/resourcecap/blob/main/LICENSE)
 
 # Introduction
 
