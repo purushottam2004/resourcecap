@@ -37,7 +37,7 @@ class Budget:
     ) -> None:
         self.limits = merge_resources(amount, limits)
         self.spent: dict[Hashable, float] = {}
-        self._token: contextvars.Token | None = None
+        self._token: contextvars.Token[tuple[_tracking._Chargeable, ...]] | None = None
 
     def charge(self, key: Hashable, amount: float) -> None:
         """Record spend against this budget's limit for `key`.

@@ -2,7 +2,8 @@ import functools
 import inspect
 import logging
 import threading
-from collections.abc import Callable, Hashable, Mapping
+from collections.abc import Awaitable, Callable, Hashable, Mapping
+from typing import cast
 
 from . import _tracking
 from ._resources import Spendable, merge_resources
@@ -59,10 +60,11 @@ def costs[**P, R](
                 _tracking.charge_active_budgets(key, spendable.amount)
 
         if inspect.iscoroutinefunction(func):
+            async_func = cast(Callable[P, Awaitable[R]], func)
 
             @functools.wraps(func)
             async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-                result = await func(*args, **kwargs)
+                result = await async_func(*args, **kwargs)
                 record_costs()
                 return result
 
